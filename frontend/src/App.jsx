@@ -9,10 +9,12 @@ function App() {
   const [loadingCompare, setLoadingCompare] = useState(false);
   const [error, setError] = useState(null);
   const [compareData, setCompareData] = useState(null);
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+
 
   // Fetch communes list on component mount
   useEffect(() => {
-    fetch('http://127.0.0.1:8000/communes')
+    fetch(`${API_BASE_URL}/communes`)
       .then((res) => {
         if (!res.ok) {
           throw new Error('Failed to fetch communes from API.');
@@ -49,7 +51,7 @@ function App() {
     setLoadingCompare(true);
     setError(null);
 
-    fetch(`http://127.0.0.1:8000/compare?left=${leftCode}&right=${rightCode}`)
+    fetch(`${API_BASE_URL}/compare?left=${leftCode}&right=${rightCode}`)
       .then(async (res) => {
         const data = await res.json();
         if (!res.ok) {
@@ -199,11 +201,10 @@ function App() {
             <div className="cards-grid">
               {/* Left card */}
               <article
-                className={`commune-card ${
-                  compareData.winner && compareData.winner.cadastre_code === compareData.left.cadastre_code
-                    ? 'is-winner'
-                    : ''
-                }`}
+                className={`commune-card ${compareData.winner && compareData.winner.cadastre_code === compareData.left.cadastre_code
+                  ? 'is-winner'
+                  : ''
+                  }`}
                 id="left-result-card"
               >
                 <div className="card-header">
@@ -250,11 +251,10 @@ function App() {
 
               {/* Right card */}
               <article
-                className={`commune-card ${
-                  compareData.winner && compareData.winner.cadastre_code === compareData.right.cadastre_code
-                    ? 'is-winner'
-                    : ''
-                }`}
+                className={`commune-card ${compareData.winner && compareData.winner.cadastre_code === compareData.right.cadastre_code
+                  ? 'is-winner'
+                  : ''
+                  }`}
                 id="right-result-card"
               >
                 <div className="card-header">
