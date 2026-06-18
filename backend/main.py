@@ -1,3 +1,4 @@
+import pandas as pd
 from fastapi import FastAPI
 import gzip
 import json
@@ -40,4 +41,16 @@ def get_communes():
     return {
         "count": len(communes),
         "communes": communes
+    }
+
+DVF_FILE = DATA_DIR / "dvf.csv"
+
+
+@app.get("/dvf-info")
+def dvf_info():
+    df = pd.read_csv(DVF_FILE, sep="|", nrows=5)
+
+    return {
+        "columns": list(df.columns),
+        "sample_rows": len(df)
     }
