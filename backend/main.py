@@ -62,18 +62,35 @@ def load_dvf() -> pd.DataFrame:
     return df
 
 
-def compute_commune_stats(df: pd.DataFrame, commune_code: int) -> dict:
-    """Compute statistics for a single commune from an already-cleaned DataFrame."""
-    commune_df = df[df["Code commune"] == commune_code]
+def normalize_commune_code(raw_code: int) -> int:
+    """Accept both cadastre-style (94046) and DVF-style (46) commune codes.
+
+    If the code has 5 digits and starts with 94, strip the department prefix.
+    Otherwise, return as-is.
+    """
+    code_str = str(raw_code)
+    if len(code_str) == 5 and code_str.startswith("94"):
+        return int(code_str[2:])  # 94046 -> 46
+    return raw_code
+
+
+def compute_commune_stats(df: pd.DataFrame, raw_code: int) -> dict:
+    """Compute statistics for a single commune from an already-cleaned DataFrame.
+
+    Accepts both cadastre codes (94046) and DVF codes (46).
+    """
+    dvf_code = normalize_commune_code(raw_code)
+    commune_df = df[df["Code commune"] == dvf_code]
 
     if commune_df.empty:
         raise HTTPException(
             status_code=404,
-            detail=f"No valid transactions found for commune code {commune_code} "
+            detail=f"No valid transactions found for commune code {raw_code} "
                    "in department 94."
         )
 
     commune_name = commune_df["Commune"].mode().iloc[0]  # most frequent name
+    cadastre_code = int(f"94{dvf_code:03d}")  # 46 -> 94046
 
     avg_price = commune_df["Valeur fonciere"].mean()
     median_price = commune_df["Valeur fonciere"].median()
@@ -81,7 +98,8 @@ def compute_commune_stats(df: pd.DataFrame, commune_code: int) -> dict:
     avg_price_per_sqm = avg_price / avg_surface if avg_surface > 0 else None
 
     return {
-        "commune_code": commune_code,
+        "cadastre_code": cadastre_code,
+        "dvf_commune_code": dvf_code,
         "commune_name": commune_name,
         "transaction_count": int(len(commune_df)),
         "average_price": round(float(avg_price), 2),
@@ -145,8 +163,7 @@ def dvf_stats():
 def commune_stats(commune_code: int):
     """Return price / surface statistics for a single commune in department 94.
 
-    `commune_code` is the INSEE commune number *without* the department prefix.
-    For example, for Alfortville (94002) pass **2**.
+    Accepts both formats: cadastre code (94046) or DVF code (46).
     """
     df = load_dvf()
     return compute_commune_stats(df, commune_code)
@@ -154,8 +171,8 @@ def commune_stats(commune_code: int):
 
 @app.get("/compare")
 def compare_communes(
-    left: int = Query(..., description="Commune code for the left side (e.g. 2 for 94002)"),
-    right: int = Query(..., description="Commune code for the right side (e.g. 46 for 94046)"),
+    left: int = Query(..., description="Commune code, either 94046 or 46"),
+    right: int = Query(..., description="Commune code, either 94046 or 46"),
 ):
     """Compare two communes on price / surface statistics.
 
@@ -174,13 +191,15 @@ def compare_communes(
     if left_ppsm is not None and right_ppsm is not None:
         if left_ppsm < right_ppsm:
             winner = {
-                "commune_code": left_stats["commune_code"],
+                "cadastre_code": left_stats["cadastre_code"],
+                "dvf_commune_code": left_stats["dvf_commune_code"],
                 "commune_name": left_stats["commune_name"],
                 "average_price_per_sqm": left_ppsm,
             }
         else:
             winner = {
-                "commune_code": right_stats["commune_code"],
+                "cadastre_code": right_stats["cadastre_code"],
+                "dvf_commune_code": right_stats["dvf_commune_code"],
                 "commune_name": right_stats["commune_name"],
                 "average_price_per_sqm": right_ppsm,
             }
