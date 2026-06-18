@@ -95,7 +95,7 @@ function App() {
   return (
     <div className="container">
       <header>
-        <h1 id="app-title">Val-de-Marne Real Estate Comparator</h1>
+        <h1 id="app-title">Compare real estate markets in Val-de-Marne</h1>
         <p className="subtitle">
           Compare property transactions, average prices, and price per square meter across communes in Val-de-Marne (94) using official DVF public data.
         </p>
@@ -107,7 +107,7 @@ function App() {
           <h2 id="comparison-form-title" className="sr-only" style={{ display: 'none' }}>Select Communes</h2>
           <form onSubmit={handleCompare} className="comparison-panel" id="comparison-form">
             <div className="select-group">
-              <label htmlFor="left-commune-select">Left Territory</label>
+              <label htmlFor="left-commune-select">First commune</label>
               <div className="select-wrapper">
                 <select
                   id="left-commune-select"
@@ -129,7 +129,7 @@ function App() {
             </div>
 
             <div className="select-group">
-              <label htmlFor="right-commune-select">Right Territory</label>
+              <label htmlFor="right-commune-select">Second commune</label>
               <div className="select-wrapper">
                 <select
                   id="right-commune-select"
@@ -305,6 +305,7 @@ function App() {
 
       <footer>
         <p>© 2026 Val-de-Marne Real Estate Comparator. Built with React & FastAPI.</p>
+        <p className="footer-note">Data: DVF 2025, cleaned and aggregated by commune.</p>
       </footer>
     </div>
   );
