@@ -1,0 +1,18 @@
+# Python
+backend/venv/
+__pycache__/
+*.pyc
+.env
+
+# Data files
+backend/data/*.csv
+backend/data/*.gz
+
+# Node / frontend later
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+
+# OS / editor
+.DS_Store
+.vscode/

@@ -54,3 +54,15 @@ def dvf_info():
         "columns": list(df.columns),
         "sample_rows": len(df)
     }
+
+@app.get("/dvf-stats")
+def dvf_stats():
+    df = pd.read_csv(DVF_FILE, sep="|", low_memory=False)
+
+    df_94 = df[df["Code departement"].astype(str) == "94"].copy()
+
+    return {
+        "total_rows": len(df),
+        "val_de_marne_rows": len(df_94),
+        "communes_count": int(df_94["Code commune"].nunique())
+    }
