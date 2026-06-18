@@ -1,16 +1,122 @@
-# React + Vite
+# Frontend - Val-de-Marne Real Estate Comparator
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This is the React/Vite frontend for the Val-de-Marne Real Estate Comparator.
 
-Currently, two official plugins are available:
+It provides a modern interface for comparing real estate indicators between two communes in Val-de-Marne using data served by the FastAPI backend.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+* Select two communes from Val-de-Marne
+* Compare real estate indicators
+* Display transaction count, average price, median price, average surface, and price per square meter
+* Highlight the more affordable commune
+* Responsive design for desktop and mobile
+* Smooth, minimal UI with subtle animations
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Tech Stack
+
+* React
+* Vite
+* JavaScript
+* CSS
+* Fetch API
+
+---
+
+## Environment Variable
+
+Create a `.env` file inside the `frontend/` folder:
+
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8000
+```
+
+For production, use the deployed backend URL:
+
+```env
+VITE_API_BASE_URL=https://val-de-marne-real-estate-api.onrender.com
+```
+
+---
+
+## Local Development
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+The frontend will run at:
+
+```text
+http://localhost:5173
+```
+
+---
+
+## Build for Production
+
+```bash
+npm run build
+```
+
+Preview the production build locally:
+
+```bash
+npm run preview
+```
+
+---
+
+## Backend API Used
+
+The frontend consumes these backend endpoints:
+
+```http
+GET /communes
+GET /compare?left={communeCode}&right={communeCode}
+```
+
+Example:
+
+```http
+GET /compare?left=94046&right=94076
+```
+
+---
+
+## Deployment
+
+The frontend is deployed on Vercel.
+
+During deployment, add this environment variable in Vercel:
+
+```env
+VITE_API_BASE_URL=https://val-de-marne-real-estate-api.onrender.com
+```
+
+Build settings:
+
+```text
+Framework: Vite
+Root Directory: frontend
+Build Command: npm run build
+Output Directory: dist
+```
+
+---
+
+## Author
+
+Yashvi TANK
