@@ -14,12 +14,30 @@ def home():
     return {"message": "API is running"}
 
 
+def load_cadastre():
+    with gzip.open(CADASTRE_FILE, "rt", encoding="utf-8") as f:
+        return json.load(f)
+
+
 @app.get("/cadastre-info")
 def cadastre_info():
-    with gzip.open(CADASTRE_FILE, "rt", encoding="utf-8") as f:
-        data = json.load(f)
+    data = load_cadastre()
 
     return {
         "type": data["type"],
         "features_count": len(data["features"])
+    }
+
+
+@app.get("/communes")
+def get_communes():
+    data = load_cadastre()
+
+    communes = sorted(
+        set(feature["properties"]["commune"] for feature in data["features"])
+    )
+
+    return {
+        "count": len(communes),
+        "communes": communes
     }
