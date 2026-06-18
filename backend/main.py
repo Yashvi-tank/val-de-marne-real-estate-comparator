@@ -4,29 +4,48 @@ import gzip
 import json
 from pathlib import Path
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(title="Val-de-Marne Real Estate Comparator API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 DATA_DIR = Path(__file__).parent / "data"
 CADASTRE_FILE = DATA_DIR / "cadastre_94_val_de_marne.geojson.gz"
 DVF_FILE = DATA_DIR / "dvf.csv"
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+# Global caches to avoid reading files repeatedly
+_cadastre_data = None
+_dvf_df = None
+
 
 def load_cadastre():
-    """Load and return the cadastre GeoJSON data."""
+    """Load and return the cadastre GeoJSON data (cached)."""
+    global _cadastre_data
+    if _cadastre_data is not None:
+        return _cadastre_data
     with gzip.open(CADASTRE_FILE, "rt", encoding="utf-8") as f:
-        return json.load(f)
+        _cadastre_data = json.load(f)
+    return _cadastre_data
 
 
 def load_dvf() -> pd.DataFrame:
-    """Load DVF data, filter for department 94, and clean numeric columns.
+    """Load DVF data, filter for department 94, and clean numeric columns (cached).
 
     Returns a DataFrame with only valid sales (Nature mutation == 'Vente',
     Valeur fonciere > 0, Surface reelle bati > 0).
     """
+    global _dvf_df
+    if _dvf_df is not None:
+        return _dvf_df
+
     if not DVF_FILE.exists():
         raise HTTPException(
             status_code=503,
@@ -59,7 +78,8 @@ def load_dvf() -> pd.DataFrame:
         & (df["Surface reelle bati"] > 0)
     ]
 
-    return df
+    _dvf_df = df
+    return _dvf_df
 
 
 def normalize_commune_code(raw_code: int) -> int:
@@ -129,13 +149,40 @@ def cadastre_info():
 
 @app.get("/communes")
 def get_communes():
+    # Load DVF to extract names mapping
+    df = load_dvf()
+    
+    # Filter unique (Code commune -> Commune name)
+    df_clean = df[df["Commune"].notna() & (df["Commune"] != "")]
+    # Create code to name map (taking mode name per code)
+    name_map = {}
+    for code, group in df_clean.groupby("Code commune"):
+        if not group.empty:
+            name_map[int(code)] = str(group["Commune"].mode().iloc[0])
+
+    # Load cadastre codes
     data = load_cadastre()
-    communes = sorted(
-        set(feature["properties"]["commune"] for feature in data["features"])
-    )
+    cadastre_codes = set(feature["properties"]["commune"] for feature in data["features"])
+
+    result = []
+    for code_str in cadastre_codes:
+        try:
+            code_int = int(code_str)
+            dvf_code = normalize_commune_code(code_int)
+            name = name_map.get(dvf_code, f"Commune {code_str}")
+            result.append({
+                "code": code_str,
+                "name": name.strip().upper()
+            })
+        except ValueError:
+            continue
+
+    # Sort by name alphabetically
+    result.sort(key=lambda x: x["name"])
+
     return {
-        "count": len(communes),
-        "communes": communes,
+        "count": len(result),
+        "communes": result,
     }
 
 
