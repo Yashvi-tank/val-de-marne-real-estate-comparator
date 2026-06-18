@@ -73,10 +73,22 @@ def load_dvf() -> pd.DataFrame:
     df = df[
         (df["Nature mutation"] == "Vente")
         & (df["Valeur fonciere"].notna())
-        & (df["Valeur fonciere"] > 0)
         & (df["Surface reelle bati"].notna())
-        & (df["Surface reelle bati"] > 0)
     ]
+
+    # Outlier filtering
+    # 1. Surface reelle bati between 10 and 500
+    df = df[(df["Surface reelle bati"] >= 10) & (df["Surface reelle bati"] <= 500)]
+    
+    # 2. Valeur fonciere between 20,000 and 5,000,000
+    df = df[(df["Valeur fonciere"] >= 20000) & (df["Valeur fonciere"] <= 5000000)]
+
+    # 3. Price per sqm between 1,000 and 20,000
+    df["price_per_sqm_temp"] = df["Valeur fonciere"] / df["Surface reelle bati"]
+    df = df[(df["price_per_sqm_temp"] >= 1000) & (df["price_per_sqm_temp"] <= 20000)]
+
+    # Drop temporary column
+    df = df.drop(columns=["price_per_sqm_temp"])
 
     _dvf_df = df
     return _dvf_df
