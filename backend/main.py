@@ -19,11 +19,13 @@ app.add_middleware(
 DATA_DIR = Path(__file__).parent / "data"
 CADASTRE_FILE = DATA_DIR / "cadastre_94_val_de_marne.geojson.gz"
 DVF_FILE = DATA_DIR / "dvf.csv"
+COMMUNE_STATS_FILE = DATA_DIR / "commune_stats.csv"
 
 
 # Global caches to avoid reading files repeatedly
 _cadastre_data = None
 _dvf_df = None
+_stats_df = None
 
 
 def load_cadastre():
@@ -94,6 +96,21 @@ def load_dvf() -> pd.DataFrame:
     return _dvf_df
 
 
+def load_commune_stats() -> pd.DataFrame:
+    """Load and return the precomputed commune statistics (cached)."""
+    global _stats_df
+    if _stats_df is not None:
+        return _stats_df
+    if not COMMUNE_STATS_FILE.exists():
+        raise HTTPException(
+            status_code=503,
+            detail=f"Commune stats file not found at {COMMUNE_STATS_FILE.name}. "
+                   "Please run generate_stats.py first to precompute statistics."
+        )
+    _stats_df = pd.read_csv(COMMUNE_STATS_FILE)
+    return _stats_df
+
+
 def normalize_commune_code(raw_code: int) -> int:
     """Accept both cadastre-style (94046) and DVF-style (46) commune codes.
 
@@ -107,37 +124,31 @@ def normalize_commune_code(raw_code: int) -> int:
 
 
 def compute_commune_stats(df: pd.DataFrame, raw_code: int) -> dict:
-    """Compute statistics for a single commune from an already-cleaned DataFrame.
+    """Get precomputed statistics for a single commune from the stats DataFrame.
 
     Accepts both cadastre codes (94046) and DVF codes (46).
     """
     dvf_code = normalize_commune_code(raw_code)
-    commune_df = df[df["Code commune"] == dvf_code]
+    commune_row = df[df["dvf_commune_code"] == dvf_code]
 
-    if commune_df.empty:
+    if commune_row.empty:
         raise HTTPException(
             status_code=404,
             detail=f"No valid transactions found for commune code {raw_code} "
                    "in department 94."
         )
 
-    commune_name = commune_df["Commune"].mode().iloc[0]  # most frequent name
-    cadastre_code = int(f"94{dvf_code:03d}")  # 46 -> 94046
-
-    avg_price = commune_df["Valeur fonciere"].mean()
-    median_price = commune_df["Valeur fonciere"].median()
-    avg_surface = commune_df["Surface reelle bati"].mean()
-    avg_price_per_sqm = avg_price / avg_surface if avg_surface > 0 else None
+    row = commune_row.iloc[0]
 
     return {
-        "cadastre_code": cadastre_code,
-        "dvf_commune_code": dvf_code,
-        "commune_name": commune_name,
-        "transaction_count": int(len(commune_df)),
-        "average_price": round(float(avg_price), 2),
-        "median_price": round(float(median_price), 2),
-        "average_surface": round(float(avg_surface), 2),
-        "average_price_per_sqm": round(float(avg_price_per_sqm), 2) if avg_price_per_sqm else None,
+        "cadastre_code": int(row["cadastre_code"]),
+        "dvf_commune_code": int(row["dvf_commune_code"]),
+        "commune_name": str(row["commune_name"]),
+        "transaction_count": int(row["transaction_count"]),
+        "average_price": round(float(row["average_price"]), 2),
+        "median_price": round(float(row["median_price"]), 2),
+        "average_surface": round(float(row["average_surface"]), 2),
+        "average_price_per_sqm": round(float(row["average_price_per_sqm"]), 2),
     }
 
 
@@ -161,33 +172,14 @@ def cadastre_info():
 
 @app.get("/communes")
 def get_communes():
-    # Load DVF to extract names mapping
-    df = load_dvf()
+    df = load_commune_stats()
     
-    # Filter unique (Code commune -> Commune name)
-    df_clean = df[df["Commune"].notna() & (df["Commune"] != "")]
-    # Create code to name map (taking mode name per code)
-    name_map = {}
-    for code, group in df_clean.groupby("Code commune"):
-        if not group.empty:
-            name_map[int(code)] = str(group["Commune"].mode().iloc[0])
-
-    # Load cadastre codes
-    data = load_cadastre()
-    cadastre_codes = set(feature["properties"]["commune"] for feature in data["features"])
-
     result = []
-    for code_str in cadastre_codes:
-        try:
-            code_int = int(code_str)
-            dvf_code = normalize_commune_code(code_int)
-            name = name_map.get(dvf_code, f"Commune {code_str}")
-            result.append({
-                "code": code_str,
-                "name": name.strip().upper()
-            })
-        except ValueError:
-            continue
+    for _, row in df.iterrows():
+        result.append({
+            "code": str(int(row["cadastre_code"])),
+            "name": str(row["commune_name"]).strip().upper()
+        })
 
     # Sort by name alphabetically
     result.sort(key=lambda x: x["name"])
@@ -224,7 +216,7 @@ def commune_stats(commune_code: int):
 
     Accepts both formats: cadastre code (94046) or DVF code (46).
     """
-    df = load_dvf()
+    df = load_commune_stats()
     return compute_commune_stats(df, commune_code)
 
 
@@ -238,7 +230,7 @@ def compare_communes(
     Returns stats for both communes plus a `winner` object indicating which
     commune has the lower average price per square meter.
     """
-    df = load_dvf()
+    df = load_commune_stats()
 
     left_stats = compute_commune_stats(df, left)
     right_stats = compute_commune_stats(df, right)

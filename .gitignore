@@ -6,6 +6,7 @@ __pycache__/
 
 # Data files
 backend/data/*.csv
+!backend/data/commune_stats.csv
 backend/data/*.gz
 
 # Node / frontend later
